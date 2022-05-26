@@ -20,6 +20,13 @@ pixelx	   .rs 1  ;
 pixely     .rs 1  ;
 spritecolumn .rs 1;
 spriterow  .rs 1  ;
+raysteps    .rs 1  ;
+dist       .rs 1  ;
+prevpixelrow .rs 1;
+dataindex  .rs 1;
+finalcolor .rs 1;
+datavalue  .rs 1;
+initialx   .rs 1;
 
 
 
@@ -128,7 +135,7 @@ LoadBackgroundFinalLoop:
 	bne LoadBackgroundFinalLoop
 	
 
-LoadAttribute:
+LoadAttribute:          ; controls which palette is assigned to each part of the background.
   LDA $2002             ; read PPU status to reset the high/low latch
   LDA #$23
   STA $2006             ; write the high byte of $23C0 address
@@ -164,7 +171,7 @@ LoadPalettesLoop:
 						  ; if compare was equal to 32, keep going down
 
 ;;;Set some initial ball stats
-	LDA #$50
+	LDA #$70
 	STA bally
   
 	LDA #$80
@@ -172,14 +179,6 @@ LoadPalettesLoop:
 	
 	LDA #$1
 	STA render
-
-	;finally start looping the NMI
-	;LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
-	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
-	STA $2000
-
-	LDA #%00011110   ; enable sprites, enable background, no clipping on left side
-	STA $2001
 
 Foreverloop:
 	LDA render ;check if we need to raymarch (calculate pixels)
@@ -193,21 +192,16 @@ Foreverloop:
 	lda #$D3  ; load the direction D3 in the D2 pointer
 	sta chrdata
 
-;	ldy #$1E	;loop 30 vertical rows
 	ldy #$0 ; start with 0 in vertical row until 1E
 loophcolumn:
-;	ldx #$10 ;loop 16 horizontal columns
 	ldx #$0 ;start with 0 in horizontal column until 10
+	STX initialx; reset initialx
 calcsprite:
 	stx spritecolumn
 	sty spriterow
 	;raymarching goes here-------------------------------------------------------
 	
-	;init some variables
-	LDA #0
-	STA rayoriginx;
-	STA rayoriginy;
-	STA rayoriginz;
+	JSR initvars
 	
 	LDY spritecolumn ;if the spritecolumn is different than 0
 	CPY #0
@@ -219,10 +213,11 @@ addpixelx:
 	STA rayoriginx ; Store the operand back to x
 	DEY
 	BNE addpixelx
+	STA initialx; store the initial x value
 checkrows:
 	LDY spriterow ;if the spriterow is different than 0
 	CPY #0
-	BEQ eachpixel
+	BEQ eachpixelstart
 addpixely:
 	LDA rayoriginy  ; Load one operand into the accumulator.
 	CLC        ; Clear the carry flag so it does not get added into the result
@@ -231,46 +226,246 @@ addpixely:
 	DEY
 	BNE addpixely
 
-eachpixel:
+eachpixelstart:
 	LDY #0
-pixelcol:
+eachpixel:
+	CLC
+	LDA dataindex
+	ADC #1
+	STA dataindex
+
 	LDX #0
-
+pixelcol:
 	;now this is the individual pixel part
+	jsr initpixel
+	jsr raymarch
 
+	JSR incrayx
 	inx
 	cpx #8; break if we reach 8
 	bne pixelcol
+	
+	sty prevpixelrow ; store y for further use
+	LDY dataindex    
+	;LDA #$54;copy pattern into CHR RAM
+	LDA datavalue
+	STA $D3,y; put final data in dataindex
+
+	
+	jsr incrayy
+	jsr restoreoriginx
+	
+	LDY prevpixelrow ; back to the previous y value
+	
 	iny
-	cpy #8; breka if we reach 8
+	cpy #8; break if we reach 8
 	bne eachpixel
 	;end of raymarching---------------------------------------------------------
 	
-;copy pattern into CHR RAM
-	ldy #0; 
-loopbpattern:
-	TYA
-	sta [chrdata],y  ; random value?
-	lda [chrdata],y  ; copy one byte
-	sta PPUDATA
-	iny
-	CPY #16; if 16 bytes are copied
-	bne loopbpattern  ; repeat until we finish the sprite
-	
-
+	jsr transfersprite
 	
 	LDX spritecolumn ; take back previous values
 	LDY spriterow ;take back previous values
 	inx
-	cpx #32; break if we reach 32
+	cpx #16; break if we reach 16
 	bne calcsprite
 	iny
-	cpy #30; breka if we reach 30
+	cpy #16; breka if we reach 16
 	bne loophcolumn
 	
 	LDA #0 ;break the pixel processing
 	STA render ; break the pixel processing
+	
+	;finally start looping the NMI
+	;LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
+	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
+	STA $2000
+
+	LDA #%00011110   ; enable sprites, enable background, no clipping on left side
+	STA $2001
+	
 	JMP Foreverloop		;jump back to Forever, infinite loop
+
+initpixel:
+	LDA #0
+	STA rayoriginz
+	STA finalcolor
+	RTS
+	
+initvars:
+	;init some variables
+	LDA #0
+	STA rayoriginx;
+	STA rayoriginy;
+	STA rayoriginz;
+	STA datavalue
+	
+	LDA #$FF
+	STA dataindex
+	
+	RTS
+
+restoreoriginx:
+	LDA initialx
+	STA rayoriginx
+	RTS
+	
+incrayx:
+	CLC
+	LDA rayoriginx
+	ADC #1
+	STA rayoriginx
+	RTS
+
+incrayy:
+	CLC
+	LDA rayoriginy
+	ADC #1
+	STA rayoriginy
+	LDA #0
+	STA datavalue ;clean data value
+	RTS
+
+map:
+;	CLC
+;	LDA rayoriginx
+;	SBC #10
+;	BMI checky
+;	RTS
+;checky:
+;	CLC
+;	LDA rayoriginy
+;	SBC #10
+;	BMI checkz
+;	RTS
+;checkz:
+;	CLC
+;	LDA rayoriginz
+;	SBC #10
+;	BMI finaldist
+;	RTS
+;finaldist:
+;	LDA #0
+;	STA dist
+;	RTS
+	LDA rayoriginy
+	CMP #64
+	BEQ finaldist
+	RTS
+finaldist:
+	LDA #0
+	STA dist
+	RTS
+	
+	
+raymarch:
+	LDA #0
+	STA raysteps ;init raysteps to 0
+raymarchloop:
+	;advance ray 10 units
+	LDA rayoriginz
+	CLC
+	ADC #10
+	STA rayoriginz
+	
+	;advance 1 step in loop
+	LDA raysteps
+	CLC
+	ADC #1
+	STA raysteps
+	
+	;init distance
+	LDA #$FF
+	STA dist
+	
+	jsr map
+	LDA raysteps
+	CMP #10
+	BEQ breakinfinty
+	LDA dist
+	CMP #0
+	BNE raymarchloop
+	
+	LDA #1
+	STA finalcolor
+	
+breakinfinty:
+	LDA finalcolor
+	CMP #1
+	BNE nocolor
+	;fill data here
+	CPX #0
+	BEQ flag0
+	CPX #1
+	BEQ flag1
+	CPX #2
+	BEQ flag2
+	CPX #3
+	BEQ flag3
+	CPX #4
+	BEQ flag4
+	CPX #5
+	BEQ flag5
+	CPX #6
+	BEQ flag6
+	CPX #7
+	BEQ flag7
+	RTS
+flag0:
+	LDA datavalue
+	ORA #%10000000
+	STA datavalue
+	RTS
+flag1:
+	LDA datavalue
+	ORA #%01000000
+	STA datavalue
+	RTS
+flag2:
+	LDA datavalue
+	ORA #%00100000
+	STA datavalue
+	RTS
+flag3:
+	LDA datavalue
+	ORA #%00010000
+	STA datavalue
+	RTS
+flag4:
+	LDA datavalue
+	ORA #%00001000
+	STA datavalue
+	RTS
+flag5:
+	LDA datavalue
+	ORA #%00000100
+	STA datavalue
+	RTS
+flag6:
+	LDA datavalue
+	ORA #%00000010
+	STA datavalue
+	RTS
+flag7:
+	LDA datavalue
+	ORA #%00000001
+	STA datavalue
+	RTS
+nocolor:
+	RTS
+	
+transfersprite:
+	LDY #0
+loopbpattern:
+	;lda [chrdata],y  ; copy one byte
+	lda $D3,y ; copy one byte
+	sta PPUDATA
+	iny
+	CPY #16; if 16 bytes are copied
+	bne loopbpattern  ; repeat until we finish the sprite
+	RTS
+
+
 	
 NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.
 	LDA #$00
@@ -330,7 +525,7 @@ WaitForHit:
 ;---------------other bank-----------------
   .bank 1
   .org $A000	;I will use this bank as an internal store of CHR pattern data, 16 bytes for each tile, two 256 tiles tables
-  .db $FF,$00,$00,$00,  $00,$00,$00,$FF,  $FF,$00,$00,$00,  $00,$00,$00,$FF   ;;sprite pattern 1
+  .db $FF,$00,$00,$00,  $00,$00,$00,$FF,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 1
   .db $00,$FF,$FF,$00,  $00,$FF,$FF,$00,  $00,$FF,$FF,$00,  $00,$FF,$FF,$00   ;;sprite pattern 2
 
   .org $B000    ;start of the second 256 tile table
@@ -346,53 +541,53 @@ WaitForHit:
 
 ;32x30 sprites background
 nametable:;background rows are split into two 16 byte sections to keep lines shorter
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ;;row 1
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ;;taking pattern 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$02,$03,$04,$05,$06,$07  ;;row 1
+  .db $08,$09,$0A,$0B,$0C,$0D,$0E,$0F,$00,$00,$00,$00,$00,$00,$00,$00  ;;taking pattern 1
 
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ;;row 2
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ;;taking pattern 1
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$10,$11,$12,$13,$14,$15,$16,$17  ;;row 2
+  .db $18,$19,$1A,$1B,$1C,$1D,$1E,$1F,$00,$00,$00,$00,$00,$00,$00,$00  ;;taking pattern 1
 
-  .db $24,$24,$24,$24,$45,$45,$24,$24,$45,$45,$45,$45,$45,$45,$24,$24  ;;row 3
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$53,$54,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$20,$21,$22,$23,$24,$25,$26,$27  ;;row 3
+  .db $28,$29,$2A,$2B,$2C,$2D,$2E,$2F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
 
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 4
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$30,$31,$32,$33,$34,$35,$36,$37  ;;row 4
+  .db $38,$39,$3A,$3B,$3C,$3D,$3E,$3F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
 
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 5
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$40,$41,$42,$43,$44,$45,$46,$47  ;;row 5
+  .db $48,$49,$4A,$4B,$4C,$4D,$4E,$4F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 6
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$50,$51,$52,$53,$54,$55,$56,$57  ;;row 6
+  .db $58,$59,$5A,$5B,$5C,$5D,$5E,$5F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 7
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$60,$61,$62,$63,$64,$65,$66,$67  ;;row 7
+  .db $68,$69,$6A,$6B,$6C,$6D,$6E,$6F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 8
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$70,$71,$72,$73,$74,$75,$76,$77  ;;row 8
+  .db $78,$79,$7A,$7B,$7C,$7D,$7E,$7F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 9
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$80,$81,$82,$83,$84,$85,$86,$87  ;;row 9
+  .db $88,$89,$8A,$8B,$8C,$8D,$8E,$8F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 10
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$90,$91,$92,$93,$94,$95,$96,$97  ;;row 90
+  .db $98,$99,$9A,$9B,$9C,$9D,$9E,$9F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 11
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7  ;;row AA
+  .db $A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 12
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$B0,$B1,$B2,$B3,$B4,$B5,$B6,$B7  ;;row B2
+  .db $B8,$B9,$BA,$BB,$BC,$BD,$BE,$BF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 13
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7  ;;row C3
+  .db $C8,$C9,$CA,$CB,$CC,$CD,$CE,$CF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 14
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$D0,$D1,$D2,$D3,$D4,$D5,$D6,$D7  ;;row D4
+  .db $D8,$D9,$DA,$DB,$DC,$DD,$DE,$DF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 15
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$E0,$E1,$E2,$E3,$E4,$E5,$E6,$E7  ;;row E5
+  .db $E8,$E9,$EA,$EB,$EC,$ED,$EE,$EF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 16
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$F0,$F1,$F2,$F3,$F4,$F5,$F6,$F7  ;;row F6
+  .db $F8,$F9,$FA,$FB,$FC,$FD,$FE,$FF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
   .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 17
   .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
