@@ -27,6 +27,21 @@ dataindex  .rs 1;
 finalcolor .rs 1;
 datavalue  .rs 1;
 initialx   .rs 1;
+num1	   .rs 1;
+num2	   .rs 1;
+num1Hi	   .rs 1;
+xvarlow	   .rs 1;
+xvarhi	   .rs 1;
+yvarlow	   .rs 1;
+yvarhi	   .rs 1;
+zvarlow	   .rs 1;
+zvarhi	   .rs 1;
+resultlow  .rs 1;
+resulthi   .rs 1;
+sqr22	   .rs 1;
+sqr23	   .rs 1;
+prevx	   .rs 1;
+prevy      .rs 1;
 
 
 
@@ -327,34 +342,97 @@ incrayy:
 	RTS
 
 map:
-;	CLC
-;	LDA rayoriginx
-;	SBC #10
-;	BMI checky
-;	RTS
-;checky:
-;	CLC
-;	LDA rayoriginy
-;	SBC #10
-;	BMI checkz
-;	RTS
-;checkz:
-;	CLC
-;	LDA rayoriginz
-;	SBC #10
-;	BMI finaldist
-;	RTS
-;finaldist:
-;	LDA #0
-;	STA dist
-;	RTS
+	STX prevx;
+	STY prevy;
+	
+	;mult x by x
+	CLC
+	LDA rayoriginx
+	SBC #64
+	STA num1
+	STA num2
+	JSR mult16
+	STA xvarlow
+	STY xvarhi
+	
+	;mult y by y
+	CLC
 	LDA rayoriginy
-	CMP #64
-	BEQ finaldist
-	RTS
-finaldist:
+	SBC #64
+	STA num1
+	STA num2
+	JSR mult16
+	STA yvarlow
+	STY yvarhi
+	
+	;mult z by z
+	CLC
+	LDA rayoriginz
+	SBC #64
+	STA num1
+	STA num2
+	JSR mult16
+	STA zvarlow
+	STY zvarhi
+	
+	;add all results
+	clc						; clear carry
+	lda xvarlow
+	adc yvarlow
+	sta resultlow			; store sum of LSBs
+	lda xvarhi
+	adc yvarhi				; add the MSBs using carry from
+	sta resulthi			; the previous calculation
+	
+	clc						; clear carry
+	lda resultlow
+	adc zvarlow
+	sta resultlow			; store sum of LSBs
+	lda resulthi
+	adc zvarhi				; add the MSBs using carry from
+	sta resulthi			; the previous calculation
+	
+	
+	;take the sqrt
+	LDY #$01 ; lsby of first odd number = 1
+	STY sqr22
+	DEY
+	STY sqr23 ; msby of first odd number (sqrt = 0)
+sqagain:
+	SEC
+	LDA resultlow ; save remainder in X register
+	TAX ; subtract odd lo from integer lo
+	SBC sqr22
+	STA resultlow
+	LDA resulthi ; subtract odd hi from integer hi
+	SBC sqr23
+	STA resulthi ; is subtract result negative?
+	BCC sqnomore ; no. increment square root
+	INY
+	LDA sqr22 ; calculate next odd number
+	ADC #$01
+	STA sqr22
+	BCC sqagain
+	INC sqr23
+	JMP sqagain
+sqnomore:
+	STY resultlow ; all done, store square root
+	STX resulthi ; and remainder
+
+	CLC
+	lda resultlow
+	SBC #20
+	STA resultlow
+	
+	LDA resultlow
+    CMP #10
+    BCS returnmap
+	
 	LDA #0
 	STA dist
+returnmap:
+	LDX prevx;
+	LDY prevy;
 	RTS
 	
 	
@@ -464,6 +542,32 @@ loopbpattern:
 	CPY #16; if 16 bytes are copied
 	bne loopbpattern  ; repeat until we finish the sprite
 	RTS
+
+mult16:
+	lda #$00
+	tay
+	sty num1Hi  ; remove this line for 16*8=16bit multiply
+	beq enterLpmul
+
+doAdd:
+	clc
+	adc num1
+	tax
+
+	tya
+	adc num1Hi
+	tay
+	txa
+
+lpmul:
+	asl num1
+	rol num1Hi
+enterLpmul:  ; accumulating multiply entry point (enter with .A=lo, .Y=hi)
+	lsr num2
+	bcs doAdd
+	bne lpmul
+	RTS
+
 
 
 	
