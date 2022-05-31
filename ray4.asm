@@ -42,7 +42,8 @@ sqr22	   .rs 1;
 sqr23	   .rs 1;
 prevx	   .rs 1;
 prevy      .rs 1;
-
+datavalue2 .rs 1;
+bitchoose  .rs 1;
 
 
 ; for ca65
@@ -262,11 +263,8 @@ pixelcol:
 	bne pixelcol
 	
 	sty prevpixelrow ; store y for further use
-	LDY dataindex    
-	;LDA #$54;copy pattern into CHR RAM
-	LDA datavalue
-	STA $D3,y; put final data in dataindex
-
+	JSR transfercolor;
+	
 	
 	jsr incrayy
 	jsr restoreoriginx
@@ -327,6 +325,7 @@ initvars:
 	LDA #0
 	;STA rayoriginz;
 	STA datavalue
+	STA datavalue2
 	
 	LDA #$FF
 	STA dataindex
@@ -352,6 +351,7 @@ incrayy:
 	STA rayoriginy
 	LDA #0
 	STA datavalue ;clean data value
+	STA datavalue2 ;clean the other data value
 	RTS
 	
 initnegx:
@@ -360,6 +360,15 @@ initnegx:
 	CLC
 	ADC #$01
 	STA initialx
+	RTS
+	
+transfercolor:
+	LDY dataindex    
+	LDA datavalue
+	STA $D3,y; put final data in dataindex
+	
+	LDA datavalue2
+	STA $DB,y; put final data2 in dataindex
 	RTS
 
 map:
@@ -466,7 +475,7 @@ sqnomore:
 
 	CLC
 	lda resultlow
-	SBC #20
+	SBC #25 ;take the radious of 25
 	STA resultlow
 	
 	LDA resultlow
@@ -485,10 +494,10 @@ raymarch:
 	LDA #0
 	STA raysteps ;init raysteps to 0
 raymarchloop:
-	;advance ray 10 units
+	;advance ray 5 units
 	LDA rayoriginz
 	CLC
-	ADC #20
+	ADC #5
 	STA rayoriginz
 	
 	;advance 1 step in loop
@@ -515,8 +524,12 @@ raymarchloop:
 breakinfinty:
 	LDA finalcolor
 	CMP #1
-	BNE nocolor
-	;fill data here
+	BEQ flagmodify
+	RTS
+;fill data here
+flagmodify:
+	LDA #0
+	STA bitchoose; init bitchoose
 	CPX #0
 	BEQ flag0
 	CPX #1
@@ -535,46 +548,68 @@ breakinfinty:
 	BEQ flag7
 	RTS
 flag0:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%10000000
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag1:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%01000000
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag2:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00100000
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag3:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00010000
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag4:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00001000
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag5:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00000100
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag6:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00000010
-	STA datavalue
-	RTS
+	STA bitchoose
+	JMP paintflag
 flag7:
-	LDA datavalue
+	LDA bitchoose
 	ORA #%00000001
+	STA bitchoose
+	JMP paintflag
+paintflag:
+	LDA raysteps
+	SBC #5
+	BPL changecolor02;
+	LDA raysteps
+	SBC #1
+	BPL changecolor01;
+	LDA datavalue
+	ORA bitchoose
 	STA datavalue
+	LDA datavalue2
+	ORA bitchoose
+	STA datavalue2
 	RTS
-nocolor:
+changecolor01:
+	LDA datavalue2
+	ORA bitchoose
+	STA datavalue2
+	RTS
+changecolor02:
+	LDA datavalue
+	ORA bitchoose
+	STA datavalue
 	RTS
 	
 transfersprite:
@@ -783,7 +818,7 @@ attribute:;finally put some colors, 64 byte attribute table
   .db %00000000, %00000000, %0000000, %00000000, %00000000, %00000000, %00000000, %00000000
 
 palette:;colors defined in the pallete
-  .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
+  .db $22,$29,$2A,$2B,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
   .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
 ;These are just values that describe where to place a sprite on the screen and its index in the tile map
