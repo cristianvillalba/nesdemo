@@ -44,6 +44,10 @@ prevx	   .rs 1;
 prevy      .rs 1;
 datavalue2 .rs 1;
 bitchoose  .rs 1;
+timers     .rs 1;
+timerm     .rs 1;
+timerm2    .rs 1;
+radius     .rs 1;
 
 
 ; for ca65
@@ -195,6 +199,9 @@ LoadPalettesLoop:
 	
 	LDA #$1
 	STA render
+	
+	LDA #25
+	STA radius
 
 Foreverloop:
 	LDA render ;check if we need to raymarch (calculate pixels)
@@ -289,9 +296,11 @@ pixelcol:
 	
 	LDA #0 ;break the pixel processing
 	STA render ; break the pixel processing
+	STA timers;
+	STA timerm
+	STA timerm2
 	
 	;finally start looping the NMI
-	;LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
 	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
 	STA $2000
 
@@ -475,7 +484,7 @@ sqnomore:
 
 	CLC
 	lda resultlow
-	SBC #25 ;take the radious of 25
+	SBC radius;take the radious of initially 25
 	STA resultlow
 	
 	LDA resultlow
@@ -644,23 +653,22 @@ noaddmulti:
 
 	
 NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.
-	LDA #$00
-	STA $2003       ; set the low byte (00) of the RAM address
-	LDA #$02
-	STA $4014       ; set the high byte (02) of the RAM address, start the transfer
+	;LDA #$00
+	;STA $2003       ; set the low byte (00) of the RAM address
+	;LDA #$02
+	;STA $4014       ; set the high byte (02) of the RAM address, start the transfer
   
   
 	;;This is the PPU clean up section, so rendering the next frame starts properly.
-	;LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
-	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
-	STA $2000
+	;LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
+	;STA $2000
 
-	LDA #%00011110   ; enable sprites, enable background, no clipping on left side
-	STA $2001
+	;LDA #%00011110   ; enable sprites, enable background, no clipping on left side
+	;STA $2001
 	
-	LDA #$00        ;;tell the ppu there is no background scrolling
-	STA $2005
-	STA $2005
+	;LDA #$00        ;;tell the ppu there is no background scrolling
+	;STA $2005
+	;STA $2005
 	
 	;move ball
 	LDA ballx
@@ -681,21 +689,64 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
 	LDA ballx
 	STA $0203
 	;;update paddle sprites
+		
 	
+;WaitForNoHit:
+;	LDA $2002
+;	AND #%01000000
+;	BNE WaitForNoHit
+;WaitForHit:
+;	LDA $2002
+;	AND #%01000000
+;	BEQ WaitForHit
 	
-WaitForNoHit:
-	LDA $2002
-	AND #%01000000
-	BNE WaitForNoHit
-WaitForHit:
-	LDA $2002
-	AND #%01000000
-	BEQ WaitForHit
+	LDA render
+	CMP #0
+	BEQ checktimers
+	RTI
 	
-	;inmediately switch to a bank 1 of pattern table for background
-	LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
-	STA $2000
+checktimers:
+	CLC
+	LDA timers
+	ADC #1
+	STA timers
+	CLC
+	SBC #60
+	BPL addsecond
+	RTI
 
+addsecond:
+	LDA #0
+	STA timers
+	LDA timerm
+	CLC
+	ADC #1
+	STA timerm
+	CLC
+	SBC #60
+	BPL addminute1
+	RTI
+addminute1:
+	LDA #0
+	STA timerm
+	LDA timerm2
+	CLC
+	ADC #1
+	STA timerm2
+	CLC
+	SBC #2
+	BPL addminute
+	RTI
+addminute:
+	LDX #0
+	STX $2000	; disable NMI
+	
+	LDA radius
+	SBC #2
+	STA radius
+
+	LDX #1
+	STX render
 	RTI
 
 ;---------------other bank-----------------
