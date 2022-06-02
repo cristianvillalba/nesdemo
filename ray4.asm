@@ -48,6 +48,7 @@ timers     .rs 1;
 timerm     .rs 1;
 timerm2    .rs 1;
 radius     .rs 1;
+pattern    .rs 1;
 
 
 ; for ca65
@@ -202,23 +203,21 @@ LoadPalettesLoop:
 	
 	LDA #25
 	STA radius
-
+	
 Foreverloop:
 	LDA render ;check if we need to raymarch (calculate pixels)
 	BEQ Foreverloop
 
-	ldy #0       ; starting index into the first page, PPU address $0000 meaning pattern table 0
-	sty PPUMASK  ; turn off rendering just in case
-	sty PPUADDR  ; load the destination address into the PPU
-	sty PPUADDR
-
-	lda #$D3  ; load the direction D3 in the D2 pointer
-	sta chrdata
+	JSR initfirstloop
+otherpattern:
+	LDA pattern
+	CLC
+	ADC #1
+	STA pattern
 
 	ldy #$0 ; start with 0 in vertical row until 1E
 loophcolumn:
 	ldx #$0 ;start with 0 in horizontal column until 10
-	;STX initialx; reset initialx
 	JSR initnegx; reset initialx
 calcsprite:
 	stx spritecolumn
@@ -230,26 +229,12 @@ calcsprite:
 	LDY spritecolumn ;if the spritecolumn is different than 0
 	CPY #0
 	BEQ checkrows
-addpixelx:
-	LDA rayoriginx  ; Load one operand into the accumulator.
-	CLC        ; Clear the carry flag so it does not get added into the result
-	ADC #8      ; Add 8 pixels
-	STA rayoriginx ; Store the operand back to x
-	DEY
-	BNE addpixelx
-	STA initialx; store the initial x value
+	JSR addpixelx
 checkrows:
 	LDY spriterow ;if the spriterow is different than 0
 	CPY #0
 	BEQ eachpixelstart
-addpixely:
-	LDA rayoriginy  ; Load one operand into the accumulator.
-	CLC        ; Clear the carry flag so it does not get added into the result
-	ADC #8      ; Add 8 pixels
-	STA rayoriginy ; Store the operand back to x
-	DEY
-	BNE addpixely
-
+	JSR addpixely
 eachpixelstart:
 	LDY #0
 eachpixel:
@@ -294,6 +279,10 @@ pixelcol:
 	cpy #16; breka if we reach 16
 	bne loophcolumn
 	
+	LDA pattern
+	CMP #0
+	BEQ otherpattern
+	
 	LDA #0 ;break the pixel processing
 	STA render ; break the pixel processing
 	STA timers;
@@ -329,16 +318,59 @@ initvars:
 	CLC
 	ADC #$01
 	STA rayoriginx;
+	
+	LDA pattern
+	CMP #0
+	BEQ firstpatterny
+	LDA #0 ;start at 0 in second pattern table
+	JMP makeneg
+firstpatterny:
+	LDA #120; start at -120 in first pattern table
+makeneg:
+	EOR #$FF
+	CLC
+	ADC #$01
 	STA rayoriginy;
 	
 	LDA #0
-	;STA rayoriginz;
 	STA datavalue
 	STA datavalue2
 	
 	LDA #$FF
 	STA dataindex
 	
+	RTS
+
+addpixelx:
+	LDA rayoriginx  ; Load one operand into the accumulator.
+	CLC        ; Clear the carry flag so it does not get added into the result
+	ADC #8      ; Add 8 pixels
+	STA rayoriginx ; Store the operand back to x
+	DEY
+	BNE addpixelx
+	STA initialx; store the initial x value
+	RTS
+
+addpixely:
+	LDA rayoriginy  ; Load one operand into the accumulator.
+	CLC        ; Clear the carry flag so it does not get added into the result
+	ADC #8      ; Add 8 pixels
+	STA rayoriginy ; Store the operand back to x
+	DEY
+	BNE addpixely
+	RTS
+
+initfirstloop:
+	ldy #0       ; starting index into the first page, PPU address $0000 meaning pattern table 0
+	sty PPUMASK  ; turn off rendering just in case
+	sty PPUADDR  ; load the destination address into the PPU
+	sty PPUADDR
+
+	lda #$D3  ; load the direction D3 in the D2 pointer
+	sta chrdata
+	
+	LDA #$FF	;start with pattern table number 0
+	STA pattern
 	RTS
 
 restoreoriginx:
@@ -364,7 +396,7 @@ incrayy:
 	RTS
 	
 initnegx:
-	LDA #64
+	LDA #64 ;start with -64 in x
 	EOR #$FF
 	CLC
 	ADC #$01
@@ -387,9 +419,9 @@ map:
 	;mult x by x
 	LDA rayoriginx
 	STA resultlow
-	SBC #$7F         ;check if value is negative, if it is, then make it positive
-	BMI nchangeposx
-	LDA rayoriginx
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ nchangeposx
+	LDA resultlow
 	EOR #$FF
 	CLC
 	ADC #$01
@@ -403,11 +435,13 @@ nchangeposx:
 	STA xvarlow
 	
 	;mult y by y
-	LDA rayoriginy 
-	STA resultlow
-	SBC #$7F        ;check if value is negative, if it is, then make it positive
-	BMI nchangeposy
 	LDA rayoriginy
+	CLC
+	ADC #64
+	STA resultlow
+	AND #%10000000  ;check if value is negative, if it is, then make it positive
+	BEQ nchangeposy;
+	LDA resultlow
 	EOR #$FF
 	CLC
 	ADC #$01
@@ -423,9 +457,9 @@ nchangeposy:
 	;mult z by z
 	LDA rayoriginz
 	STA resultlow
-	SBC #$7F    ;check if value is negative, if it is, then make it positive
-	BMI nchangeposz
-	LDA rayoriginz
+	AND #%10000000   ;check if value is negative, if it is, then make it positive
+	BEQ nchangeposz
+	LDA resultlow
 	EOR #$FF
 	CLC
 	ADC #$01
@@ -691,14 +725,18 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
 	;;update paddle sprites
 		
 	
-;WaitForNoHit:
-;	LDA $2002
-;	AND #%01000000
-;	BNE WaitForNoHit
-;WaitForHit:
-;	LDA $2002
-;	AND #%01000000
-;	BEQ WaitForHit
+WaitForNoHit:
+	LDA $2002
+	AND #%01000000
+	BNE WaitForNoHit
+WaitForHit:
+	LDA $2002
+	AND #%01000000
+	BEQ WaitForHit
+
+	;inmediately switch to a bank 1 of pattern table for background
+	LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
+	STA $2000
 	
 	LDA render
 	CMP #0
@@ -795,68 +833,68 @@ nametable:;background rows are split into two 16 byte sections to keep lines sho
   .db $00,$00,$00,$00,$00,$00,$00,$00,$80,$81,$82,$83,$84,$85,$86,$87  ;;row 9
   .db $88,$89,$8A,$8B,$8C,$8D,$8E,$8F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$90,$91,$92,$93,$94,$95,$96,$97  ;;row 90
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$90,$91,$92,$93,$94,$95,$96,$97  ;;row 10
   .db $98,$99,$9A,$9B,$9C,$9D,$9E,$9F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7  ;;row AA
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7  ;;row 11
   .db $A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$B0,$B1,$B2,$B3,$B4,$B5,$B6,$B7  ;;row B2
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$B0,$B1,$B2,$B3,$B4,$B5,$B6,$B7  ;;row 12
   .db $B8,$B9,$BA,$BB,$BC,$BD,$BE,$BF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7  ;;row C3
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7  ;;row 13
   .db $C8,$C9,$CA,$CB,$CC,$CD,$CE,$CF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$D0,$D1,$D2,$D3,$D4,$D5,$D6,$D7  ;;row D4
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$D0,$D1,$D2,$D3,$D4,$D5,$D6,$D7  ;;row 14
   .db $D8,$D9,$DA,$DB,$DC,$DD,$DE,$DF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$E0,$E1,$E2,$E3,$E4,$E5,$E6,$E7  ;;row E5
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$E0,$E1,$E2,$E3,$E4,$E5,$E6,$E7  ;;row 15
   .db $E8,$E9,$EA,$EB,$EC,$ED,$EE,$EF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$F0,$F1,$F2,$F3,$F4,$F5,$F6,$F7  ;;row F6
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$F0,$F1,$F2,$F3,$F4,$F5,$F6,$F7  ;;row 16
   .db $F8,$F9,$FA,$FB,$FC,$FD,$FE,$FF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 17
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$02,$03,$04,$05,$06,$07  ;;row 17
+  .db $08,$09,$0A,$0B,$0C,$0D,$0E,$0F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 18
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$10,$11,$12,$13,$14,$15,$16,$17  ;;row 18
+  .db $18,$19,$1A,$1B,$1C,$1D,$1E,$1F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 19
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$20,$21,$22,$23,$24,$25,$26,$27  ;;row 19
+  .db $28,$29,$2A,$2B,$2C,$2D,$2E,$2F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 20
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$30,$31,$32,$33,$34,$35,$36,$37  ;;row 20
+  .db $38,$39,$3A,$3B,$3C,$3D,$3E,$3F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 21
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$40,$41,$42,$43,$44,$45,$46,$47  ;;row 21
+  .db $48,$49,$4A,$4B,$4C,$4D,$4E,$4F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 22
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$50,$51,$52,$53,$54,$55,$56,$57  ;;row 22
+  .db $58,$59,$5A,$5B,$5C,$5D,$5E,$5F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 23
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$60,$61,$62,$63,$64,$65,$66,$67  ;;row 23
+  .db $68,$69,$6A,$6B,$6C,$6D,$6E,$6F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 24
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$70,$71,$72,$73,$74,$75,$76,$77  ;;row 24
+  .db $78,$79,$7A,$7B,$7C,$7D,$7E,$7F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 25
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$80,$81,$82,$83,$84,$85,$86,$87  ;;row 25
+  .db $88,$89,$8A,$8B,$8C,$8D,$8E,$8F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00  ;;row 26
-  .db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$55,$56,$00,$00  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$90,$91,$92,$93,$94,$95,$96,$97  ;;row 26
+  .db $98,$99,$9A,$9B,$9C,$9D,$9E,$9F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 27
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7  ;;row 27
+  .db $A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 28
-  .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$B0,$B1,$B2,$B3,$B4,$B5,$B6,$B7  ;;row 28
+  .db $B8,$B9,$BA,$BB,$BC,$BD,$BE,$BF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01  ;;row 29
-  .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$C0,$C1,$C2,$C3,$C4,$C5,$C6,$C7  ;;row 29
+  .db $C8,$C9,$CA,$CB,$CC,$CD,$CE,$CF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
-  .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01  ;;row 30
-  .db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01  ;;
+  .db $00,$00,$00,$00,$00,$00,$00,$00,$D0,$D1,$D2,$D3,$D4,$D5,$D6,$D7  ;;row 30
+  .db $D8,$D9,$DA,$DB,$DC,$DD,$DE,$DF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
 attribute:;finally put some colors, 64 byte attribute table
   .db %00000000, %00000000, %0000000, %00000000, %00000000, %00000000, %00000000, %00000000
