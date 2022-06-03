@@ -6,4 +6,5 @@ Also it is using the sprite 0 hit for switching the table and paint almost 500 s
 
 It is really slow, so you better use the turbo option in your emulator to get decent speed.
 
-![image](https://user-images.githubusercontent.com/5841150/171217044-872168e1-7c64-4547-822e-feaa07d2cc32.png)
+![image](https://user-images.githubusercontent.com/5841150/171930579-dacab18c-cd10-46ab-9d86-601008f6db76.png)
+
