@@ -49,6 +49,7 @@ timerm     .rs 1;
 timerm2    .rs 1;
 radius     .rs 1;
 pattern    .rs 1;
+pixelstep  .rs 1; interlacing render (this is needed to paint something in the sprite 0 to generate the switch pattern logic
 
 
 ; for ca65
@@ -192,7 +193,7 @@ LoadPalettesLoop:
 						  ; if compare was equal to 32, keep going down
 
 ;;;Set some initial ball stats
-	LDA #$70
+	LDA #126
 	STA bally
   
 	LDA #$80
@@ -257,8 +258,8 @@ pixelcol:
 	sty prevpixelrow ; store y for further use
 	JSR transfercolor;
 	
-	
 	jsr incrayy
+	jsr changeinterlace
 	jsr restoreoriginx
 	
 	LDY prevpixelrow ; back to the previous y value
@@ -302,7 +303,7 @@ initpixel:
 	LDA #0
 	;STA rayoriginz
 	STA finalcolor
-	
+		
 	LDA #32 ;start at -32 two compliment value
 	EOR #$FF
 	CLC
@@ -341,6 +342,18 @@ makeneg:
 	
 	RTS
 
+changeinterlace:
+	LDA pixelstep
+	CMP #0
+	BEQ flipstep1
+	LDA #0
+	STA pixelstep
+	RTS
+flipstep1:
+	LDA #1
+	STA pixelstep
+	RTS
+	
 addpixelx:
 	LDA rayoriginx  ; Load one operand into the accumulator.
 	CLC        ; Clear the carry flag so it does not get added into the result
@@ -365,7 +378,7 @@ initfirstloop:
 	sty PPUMASK  ; turn off rendering just in case
 	sty PPUADDR  ; load the destination address into the PPU
 	sty PPUADDR
-
+	
 	lda #$D3  ; load the direction D3 in the D2 pointer
 	sta chrdata
 	
@@ -436,8 +449,8 @@ nchangeposx:
 	
 	;mult y by y
 	LDA rayoriginy
-	CLC
-	ADC #64
+	;CLC
+	;ADC #64
 	STA resultlow
 	AND #%10000000  ;check if value is negative, if it is, then make it positive
 	BEQ nchangeposy;
@@ -536,6 +549,17 @@ returnmap:
 raymarch:
 	LDA #0
 	STA raysteps ;init raysteps to 0
+	
+	LDA pixelstep
+	CMP #1
+	BEQ invertflag
+	LDA #1
+	STA pixelstep
+	jmp raymarchloop
+invertflag:
+	LDA #0
+	sta pixelstep
+	JMP flagmodify
 raymarchloop:
 	;advance ray 5 units
 	LDA rayoriginz
@@ -687,34 +711,35 @@ noaddmulti:
 
 	
 NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.
-	;LDA #$00
-	;STA $2003       ; set the low byte (00) of the RAM address
-	;LDA #$02
-	;STA $4014       ; set the high byte (02) of the RAM address, start the transfer
+	LDA #$00
+	STA $2003       ; set the low byte (00) of the RAM address
+	LDA #$02
+	STA $4014       ; set the high byte (02) of the RAM address, start the transfer
   
   
 	;;This is the PPU clean up section, so rendering the next frame starts properly.
-	;LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
-	;STA $2000
+	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
+	STA $2000
 
-	;LDA #%00011110   ; enable sprites, enable background, no clipping on left side
-	;STA $2001
+	LDA #%00011110   ; enable sprites, enable background, no clipping on left side
+	STA $2001
 	
-	;LDA #$00        ;;tell the ppu there is no background scrolling
-	;STA $2005
-	;STA $2005
+	LDA #$00        ;;tell the ppu there is no background scrolling
+	STA $2005
+	STA $2005
 	
 	;move ball
-	LDA ballx
-	CLC
-	ADC #$01        ;;ballx position = ballx + ballspeedx
+;	LDA ballx
+;	CLC
+;	ADC #$01        ;;ballx position = ballx + ballspeedx
+	LDA #93
 	STA ballx
 	
 	;this will update all ball sprite info in the RAM memory space $0200
 	LDA bally
 	STA $0200
   
-	LDA #$01	   ;;pattern number 1 in pattern table
+	LDA #$00	   ;;pattern number 0 in pattern table
 	STA $0201
   
 	LDA #$00
