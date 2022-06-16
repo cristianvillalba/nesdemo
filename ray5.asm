@@ -74,7 +74,9 @@ qvecx      .rs 1;
 qvecy      .rs 1;
 wvalue     .rs 1;
 isyneg     .rs 1;
+isxneg     .rs 1;
 yflip      .rs 1;
+rayyflip   .rs 1;
 
 
 
@@ -327,10 +329,9 @@ pixelcol:
 
 initpixel:
 	LDA #0
-	;STA rayoriginz
 	STA finalcolor
 		
-	LDA #64 ;start at -64 two compliment value
+	LDA #64 ;start at 64 two compliment value
 	;EOR #$FF
 	;CLC
 	;ADC #$01
@@ -370,6 +371,11 @@ makeneg:
 	LDA #$FF
 	STA dataindex
 	
+	LDA rayoriginy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA rayyflip;
 	RTS
 
 changeinterlace:
@@ -399,6 +405,13 @@ addpixely:
 	CLC        ; Clear the carry flag so it does not get added into the result
 	ADC #8      ; Add 8 pixels
 	STA rayoriginy ; Store the operand back to x
+	
+	LDA rayoriginy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA rayyflip;
+	
 	DEY
 	BNE addpixely
 	RTS
@@ -433,6 +446,13 @@ incrayy:
 	LDA rayoriginy
 	ADC #1
 	STA rayoriginy
+	
+	LDA rayoriginy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA rayyflip;
+	
 	LDA #0
 	STA datavalue ;clean data value
 	STA datavalue2 ;clean the other data value
@@ -469,7 +489,8 @@ map:
 	ADC #$01
 	STA tempx
 continuewithy:
-	LDA rayoriginy
+	;LDA rayoriginy
+	LDA rayyflip
 	EOR #$FF
 	CLC
 	ADC #$01
@@ -495,183 +516,181 @@ continuewithz:
 	ADC #$01
 	STA tempz
 rotatestart:
-	; ;using phitagorean triplets to rotate
-	; ;this will rotate in the Z axis 
-	; ;iq example pos.xy = (mat2(3,4,-4,3)/5.0)*pos.xy;
-	; ;float tempx = 3.0*pos.x -4.0*pos.y;
-    ; ;float tempy = 4.0*pos.x + 3.0*pos.y;
-    ; ;pos.x = tempx / 5.0;
-    ; ;pos.y = tempy / 5.0;
+	;using phitagorean triplets to rotate
+	;this will rotate in the Z axis 
+	;iq example pos.xy = (mat2(3,4,-4,3)/5.0)*pos.xy;
+	;float tempx = 3.0*pos.x -4.0*pos.y;
+    ;float tempy = 4.0*pos.x + 3.0*pos.y;
+    ;pos.x = tempx / 5.0;
+    ;pos.y = tempy / 5.0;
 	
-	; ;calc tempx
-	; LDA tempx
-	; LDY #3
-	; JSR mult16
-	; STA temp1xhi
-	; LDA num1
-	; STA temp1xlo
+	;calc tempx
+	LDA tempx
+	LDY #3
+	JSR mult16
+	STA temp1xhi
+	LDA num1
+	STA temp1xlo
 	
-	; LDA rayoriginx   ;check if x value is negative
-	; AND #%10000000 
-	; BEQ step1
-	; SEC
-	; LDA #$00
-	; SBC temp1xlo
-    ; STA temp1xlo
-	; LDA #$00
-	; SBC temp1xhi
-	; STA temp1xhi
-; step1:
-	; LDA tempy
-	; LDY #4
-	; JSR mult16
-	; STA temp1yhi
-	; LDA num1
-	; STA temp1ylo
+	LDA rayoriginx   ;check if x value is negative
+	AND #%10000000 
+	BEQ step1
+	SEC
+	LDA #$00
+	SBC temp1xlo
+    STA temp1xlo
+	LDA #$00
+	SBC temp1xhi
+	STA temp1xhi
+step1:
+	LDA tempy
+	LDY #4
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
 	
-	; LDA rayoriginy   ;check if y value is negative
-	; AND #%10000000
-	; BEQ step1plus
-	; SEC
-	; LDA #$00
-	; SBC temp1ylo
-    ; STA temp1ylo
-	; LDA #$00
-	; SBC temp1yhi
-	; STA temp1yhi
+	;LDA rayoriginy   ;check if y value is negative
+	LDA rayyflip
+	AND #%10000000
+	BEQ step1plus
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
 
-; step1plus:
-	; SEC              ;complement to add
-	; LDA #$00
-	; SBC temp1ylo
-    ; STA temp1ylo
-	; LDA #$00
-	; SBC temp1yhi
-	; STA temp1yhi
+step1plus:
+	SEC              ;complement to add
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
 
-	; clc				; clear carry
-	; lda temp1xlo
-	; adc temp1ylo
-	; sta temp2xlo			; store sum of LSBs
-	; lda temp1xhi
-	; adc temp1yhi			; add the MSBs using carry from
-	; sta temp2xhi			; the previous calculation
+	clc				; clear carry
+	lda temp1xlo
+	adc temp1ylo
+	sta temp2xlo			; store sum of LSBs
+	lda temp1xhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2xhi			; the previous calculation
 	
-; step2:
-	; ;calc tempy
-	; LDA tempx
-	; LDY #4
-	; JSR mult16
-	; STA temp1xhi
-	; LDA num1
-	; STA temp1xlo
+step2:
+	;calc tempy
+	LDA tempx
+	LDY #4
+	JSR mult16
+	STA temp1xhi
+	LDA num1
+	STA temp1xlo
 	
-	; LDA rayoriginx   ;check if x value is negative
-	; AND #%10000000 
-	; BEQ step3
-	; SEC
-	; LDA #$00
-	; SBC temp1xlo
-    ; STA temp1xlo
-	; LDA #$00
-	; SBC temp1xhi
-	; STA temp1xhi
+	LDA rayoriginx   ;check if x value is negative
+	AND #%10000000 
+	BEQ step3
+	SEC
+	LDA #$00
+	SBC temp1xlo
+    STA temp1xlo
+	LDA #$00
+	SBC temp1xhi
+	STA temp1xhi
 	
-; step3:
-	; LDA tempy
-	; LDY #3
-	; JSR mult16
-	; STA temp1yhi
-	; LDA num1
-	; STA temp1ylo
+step3:
+	LDA tempy
+	LDY #3
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
 	
-	; LDA rayoriginy   ;check if y value is negative
-	; AND #%10000000 
-	; BEQ step4jplus
-	; SEC
-	; LDA #$00
-	; SBC temp1ylo
-    ; STA temp1ylo
-	; LDA #$00
-	; SBC temp1yhi
-	; STA temp1yhi
+	;LDA rayoriginy   ;check if y value is negative
+	LDA rayyflip
+	AND #%10000000 
+	BEQ step4jplus
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
 	
-; step4jplus:
-	; clc				; clear carry
-	; lda temp1xlo
-	; adc temp1ylo
-	; sta temp2ylo			; store sum of LSBs
-	; lda temp1xhi
-	; adc temp1yhi			; add the MSBs using carry from
-	; sta temp2yhi			; the previous calculation
+step4jplus:
+	clc				; clear carry
+	lda temp1xlo
+	adc temp1ylo
+	sta temp2ylo			; store sum of LSBs
+	lda temp1xhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2yhi			; the previous calculation
 	
-	; ;----------------------------------------------------------------------
+	;----------------------------------------------------------------------
+	LDA #0
+	STA isxneg
 	
-	; LDA temp2xhi
-	; AND #%10000000     ;check if value is negative, if it is, then make it positive
-	; BEQ continuedivx
-	; SEC
-	; LDA #$00
-	; SBC temp2xlo
-    ; STA temp2xlo
-	; LDA #$00
-	; SBC temp2xhi
-	; STA temp2xhi
-; continuedivx:
-	; lda temp2xlo            ;divide by 5
-	; sta dividend
-	; lda temp2xhi
-	; sta dividend + 1
-	; lda #5
-	; sta divisor
-	; jsr divide
+	LDA temp2xhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivx
+	SEC
+	LDA #$00
+	SBC temp2xlo
+    STA temp2xlo
+	LDA #$00
+	SBC temp2xhi
+	STA temp2xhi
 	
-	; lda dividend
-	; sta temp2xlo
-	; sta tempx
-	; lda dividend + 1
-	; sta temp2xhi
-	; ;------------------------------------------
-	; LDA #0
-	; STA isyneg
+	LDA #1
+	STA isxneg
+continuedivx:
+	lda temp2xlo            ;divide by 5
+	sta dividend
+	lda temp2xhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
 	
-	; LDA temp2yhi
-	; AND #%10000000     ;check if value is negative, if it is, then make it positive
-	; BEQ continuedivy
-	; SEC
-	; LDA #$00
-	; SBC temp2ylo
-    ; STA temp2ylo
-	; LDA #$00
-	; SBC temp2yhi
-	; STA temp2yhi
+	lda dividend
+	sta temp2xlo
+	sta tempx
+	lda dividend + 1
+	sta temp2xhi
+	;------------------------------------------
+	LDA #0
+	STA isyneg
 	
-	; LDA #1
-	; STA isyneg
+	LDA temp2yhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivy
+	SEC
+	LDA #$00
+	SBC temp2ylo
+    STA temp2ylo
+	LDA #$00
+	SBC temp2yhi
+	STA temp2yhi
 	
-; continuedivy:
-	; lda temp2ylo            ;divide by 5
-	; sta dividend
-	; lda temp2yhi
-	; sta dividend + 1
-	; lda #5
-	; sta divisor
-	; jsr divide
+	LDA #1
+	STA isyneg
 	
-	; lda dividend
-	; sta temp2ylo
-	; sta tempy
-	; lda dividend + 1
-	; sta temp2yhi
+continuedivy:
+	lda temp2ylo            ;divide by 5
+	sta dividend
+	lda temp2yhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
 	
-	; ;LDA isyneg
-	; ;CMP #1
-	; ;BNE contmatez
-	; ;LDA tempy
-	; ;EOR #$FF
-	; ;CLC
-	; ;ADC #$01
-	; ;STA tempy
+	lda dividend
+	sta temp2ylo
+	sta tempy
+	lda dividend + 1
+	sta temp2yhi
 	
 	;-----------------------------------------------------------------------------------------------------
 	;using phitagorean triplets to rotate
@@ -682,7 +701,7 @@ rotatestart:
     ;pos.z = tempz / 5.0;
     ;pos.y = tempy / 5.0;
 	
-	;calc tempx
+	;calc tempz
 	LDA tempz
 	LDY #3
 	JSR mult16
@@ -690,7 +709,7 @@ rotatestart:
 	LDA num1
 	STA temp1zlo
 	
-	LDA rayoriginz   ;check if x value is negative
+	LDA rayoriginz   ;check if z value is negative
 	AND #%10000000 
 	BEQ step1z
 	SEC
@@ -708,8 +727,10 @@ step1z:
 	LDA num1
 	STA temp1ylo
 	
-	LDA yflip   ;check if y value is negative
-	AND #%10000000
+	;LDA yflip   ;check if y value is negative
+	;AND #%10000000
+	LDA isyneg
+	CMP #0
 	BEQ step1plusz
 	SEC
 	LDA #$00
@@ -737,15 +758,15 @@ step1plusz:
 	sta temp2zhi			; the previous calculation
 	
 step2z:
-	;calc tempy
+	;calc tempz
 	LDA tempz
 	LDY #4
 	JSR mult16
-	STA temp1zhi
+	STA temp1zhi;
 	LDA num1
 	STA temp1zlo
 	
-	LDA rayoriginz   ;check if x value is negative
+	LDA rayoriginz   ;check if z value is negative
 	AND #%10000000 
 	BEQ step3z
 	SEC
@@ -764,8 +785,10 @@ step3z:
 	LDA num1
 	STA temp1ylo
 	
-	LDA yflip   ;check if y value is negative
-	AND #%10000000 
+	;LDA yflip   ;check if y value is negative
+	;AND #%10000000 
+	LDA isyneg
+	CMP #0
 	BEQ step4jpluz
 	SEC
 	LDA #$00
@@ -844,18 +867,9 @@ continuedivyz:
 	lda dividend + 1
 	sta temp2yhi
 	
-	;;LDA isyneg
-	;;CMP #1
-	;;BNE contmate
-	;;LDA tempy
-	;;EOR #$FF
-	;;CLC
-	;;ADC #$01
-	;;STA tempy
+
 	
-	
-	
-contmate:
+contmatez:
 	;-----------------------------------------------------------------------------------------------------
 	;float r = 0.5; radius of sphere
     ;float h = 0.2; cut plane position
