@@ -1,6 +1,6 @@
 # nes dev demo
 Raymarching a Distance Field in NES
-This is some experiment that I did trying to learn Nes ASM development.
+This is some experiment that I did trying to learn 6502 ASM development.
 
 Now I can raymarch a cut hollow sphere and put that on the PPU pattern table, so no predraw CHR files here.
 Also it is using the sprite 0 hit for switching the table and paint almost 500 sprites in screen.
