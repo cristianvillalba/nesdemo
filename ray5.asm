@@ -77,6 +77,11 @@ isyneg     .rs 1;
 isxneg     .rs 1;
 yflip      .rs 1;
 rayyflip   .rs 1;
+pillh      .rs 1;
+pillr      .rs 1;
+finalclampy .rs 1;
+map1val    .rs 1;
+map2val    .rs 1;
 
 
 
@@ -516,6 +521,8 @@ continuewithz:
 	ADC #$01
 	STA tempz
 rotatestart:
+	;just for debugging
+	;JMP pillmap
 	;using phitagorean triplets to rotate
 	;this will rotate in the Z axis 
 	;iq example pos.xy = (mat2(3,4,-4,3)/5.0)*pos.xy;
@@ -889,8 +896,8 @@ contmatez:
 	LDA num1
 	STA xvarlow
 	
-	LDA tempz
 	LDY tempz
+	LDA tempz
 	JSR mult16
 	STA zvarhi
 	LDA num1
@@ -977,15 +984,6 @@ LowerBrc:
 	sbc wvalue		; perform subtraction on the LSBs
 	sta temp1xlo
 	
-	;LDA isyneg
-	;CMP #0
-	;BEQ lowersub
-	;LDA qvecy
-	;EOR #$FF
-	;CLC
-	;ADC #$01
-	;STA qvecy
-;lowersub:
 	sec				; set carry for borrow purpose
 	lda qvecy
 	sbc planeposh		; perform subtraction on the LSBs
@@ -1014,8 +1012,10 @@ LowerBrc:
 	sta resulthi			; the previous calculation
 	
 	JSR sqrt
-	
-	JMP finalizemap
+
+	LDA resultlow
+	STA map1val
+	JMP pillmap
 HigherBrc:
 	;abs(length(q)-r)  - t
 	LDA qvecx
@@ -1055,13 +1055,6 @@ HigherBrc:
 	CLC
 	ADC #$01
 	STA resultlow
-	
-;	LDA resultlow
-;	SEC
-;	SBC materad
-;	BCS minusthick
-;	EOR #$ff
-;	ADC resultlow
 
 minusthick:
 ;	STA resultlow
@@ -1071,60 +1064,134 @@ minusthick:
 	SBC thickness
 	STA resultlow
 	
-	
-	JMP finalizemap
+	LDA resultlow
+	STA map1val
+	JMP pillmap
 
 ;----------------------------------------------------------------------
+;pill map
+; p.y -= clamp( p.y, 0.0, h );
+pillmap:
+	LDA #4
+	STA pillr
+	
+	LDA #70
+	STA pillh
+	
+	LDA rayyflip
+    CMP #$80
+    BCC clamp1 ;lower means rayyflip positive
+    BNE clamp2 ;higher means ryayflip negative
+	
+clamp1:
+	;using rayyflip
+	LDA rayyflip
+	CMP pillh
+	BCC clamp3
+	BNE clamp4
+clamp2:
+	;using zero
+	LDA #0
+	CMP pillh
+	BCC clamp5
+	BNE clamp6
+clamp3:
+	LDA rayyflip
+	STA finalclampy
+	jmp pill1
+clamp4:
+	LDA pillh
+	STA finalclampy
+	jmp pill1
+clamp5:
+	LDA #0
+	STA finalclampy
+	jmp pill1
+clamp6:
+	LDA pillh
+	STA finalclampy
+	
+pill1:
+	;compliment to add
+	LDA finalclampy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA finalclampy
+	
+	LDA rayyflip
+	CLC
+	ADC finalclampy
+	STA tempy
+	AND #%10000000  ;check if value is negative, if it is, then make it positive
+	BEQ lenghtofp;
+	LDA tempy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA tempy
+
+lenghtofp:
+	LDA tempx
+	LDY tempx
+	JSR mult16
+	STA xvarhi
+	LDA num1
+	STA xvarlow
+	
+	LDY tempy
+	LDA tempy
+	JSR mult16
+	STA yvarhi
+	LDA num1
+	STA yvarlow
+	
+	LDY tempz
+	LDA tempz
+	JSR mult16
+	STA zvarhi
+	LDA num1
+	STA zvarlow
+	
+	;add all values and sqrt
+	clc						; clear carry
+	lda xvarlow
+	adc yvarlow
+	sta resultlow			; store sum of LSBs
+	lda xvarhi
+	adc yvarhi				; add the MSBs using carry from
+	sta resulthi			; the previous calculation
+	
+	clc						; clear carry
+	lda resultlow
+	adc zvarlow
+	sta resultlow			; store sum of LSBs
+	lda resulthi
+	adc zvarhi				; add the MSBs using carry from
+	sta resulthi			; the previous calculation
+	
+	JSR sqrt
+	
+	;and minus radius
+	clc
+	LDA resultlow
+	SBC pillr ;pill radius
+	STA resultlow
+	STA map2val
+	
+	LDA map1val
+	CMP map2val
+	BCC union1 ; take map1val
+	BNE union2 ; take map2val
+union1:
+	LDA map1val
+	STA resultlow
+	jmp finalizemap
+union2:
+	LDA map2val
+	STA resultlow
+	jmp finalizemap
 finalizemap:
-	;LDA tempx
-	;LDY tempx
-	;JSR mult16
-	;STA xvarhi
-	;LDA num1
-	;STA xvarlow
-	
-	;LDA tempy
-	;LDY tempy
-	;JSR mult16
-	;STA yvarhi
-	;LDA num1
-	;STA yvarlow
-	
-	;LDA tempz
-	;LDY tempz
-	;JSR mult16
-	;STA zvarhi
-	;LDA num1
-	;STA zvarlow
-	
-	;add all results
-	;clc						; clear carry
-	;lda xvarlow
-	;adc yvarlow
-	;sta resultlow			; store sum of LSBs
-	;lda xvarhi
-	;adc yvarhi				; add the MSBs using carry from
-	;sta resulthi			; the previous calculation
-	
-	;clc						; clear carry
-	;lda resultlow
-	;adc zvarlow
-	;sta resultlow			; store sum of LSBs
-	;lda resulthi
-	;adc zvarhi				; add the MSBs using carry from
-	;sta resulthi			; the previous calculation
-	
-	;JSR sqrt
-
-	;CLC
-	;lda resultlow
-	;SBC radius;take the radious of initially 25
-	;STA resultlow
-	
-	;LDA resultlow
-    ;CMP #5
-    ;BCS returnmap
-
 	LDA resultlow
     CMP #2
 	BCC distancehit
