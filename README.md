@@ -1,12 +1,18 @@
 # nes dev demo
-Raymarching a Distance Field in NES
+Raymarching a Mate (Distance Field) in NES
 This is some experiment that I did trying to learn 6502 ASM development.
 
-Now I can raymarch a cut hollow sphere and put that on the PPU pattern table, so no predraw CHR files here.
+Raymarching a cut hollow sphere, with a pill on it.
+This will somehow asemble a kind of Mate from Argentina.
+
+I render all the pixels directly to the PPU pattern table, so no predraw CHR files here.
 Also it is using the sprite 0 hit for switching the table and paint almost 500 sprites in screen.
 
 It is really slow, so you better use the turbo option in your emulator to get decent speed.
 
-![image](https://user-images.githubusercontent.com/5841150/174113775-917a45f8-8404-4ca2-9443-804d45f4e9ff.png)
+Next step will be putting some sound on it and I will stop wasting time here.
+
+![image](https://user-images.githubusercontent.com/5841150/176202903-83dee980-5954-48ca-89ee-5a8921b7d429.png)
+
 
 
