@@ -1072,12 +1072,411 @@ minusthick:
 ;pill map
 ; p.y -= clamp( p.y, 0.0, h );
 pillmap:
-	LDA #4
+	LDA #3
 	STA pillr
 	
-	LDA #70
+	LDA #30
 	STA pillh
 	
+	SEC
+	LDA rayoriginx ;move pill in x axis y 30 units
+	SBC #30
+	STA tempx ;
+	
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuewithyb
+	LDA tempx
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA tempx
+continuewithyb:
+	;LDA rayoriginy
+	LDA rayyflip
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA yflip
+	;CLC
+	;ADC #64 ;this will translate y 64 units up
+	STA tempy
+	AND #%10000000  ;check if value is negative, if it is, then make it positive
+	BEQ continuewithzb;
+	LDA tempy
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA tempy
+continuewithzb:
+	LDA rayoriginz
+	STA tempz
+	AND #%10000000   ;check if value is negative, if it is, then make it positive
+	BEQ rotatestartb
+	LDA tempz
+	EOR #$FF
+	CLC
+	ADC #$01
+	STA tempz
+rotatestartb:
+	;just for debugging
+	;JMP pillmap
+	;using phitagorean triplets to rotate
+	;this will rotate in the Z axis 
+	;iq example pos.xy = (mat2(3,4,-4,3)/5.0)*pos.xy;
+	;float tempx = 3.0*pos.x -4.0*pos.y;
+    ;float tempy = 4.0*pos.x + 3.0*pos.y;
+    ;pos.x = tempx / 5.0;
+    ;pos.y = tempy / 5.0;
+	
+	;calc tempx
+	LDA tempx
+	LDY #3
+	JSR mult16
+	STA temp1xhi
+	LDA num1
+	STA temp1xlo
+	
+	SEC
+	LDA rayoriginx   ;check if x value is negative
+	SBC #30;move pill in x axis y 30 units
+	AND #%10000000 
+	BEQ step1b
+	SEC
+	LDA #$00
+	SBC temp1xlo
+    STA temp1xlo
+	LDA #$00
+	SBC temp1xhi
+	STA temp1xhi
+step1b:
+	LDA tempy
+	LDY #4
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
+	
+	;LDA rayoriginy   ;check if y value is negative
+	LDA rayyflip
+	AND #%10000000
+	BEQ step1plusb
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+
+step1plusb:
+	SEC              ;complement to add
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+
+	clc				; clear carry
+	lda temp1xlo
+	adc temp1ylo
+	sta temp2xlo			; store sum of LSBs
+	lda temp1xhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2xhi			; the previous calculation
+	
+step2b:
+	;calc tempy
+	LDA tempx
+	LDY #4
+	JSR mult16
+	STA temp1xhi
+	LDA num1
+	STA temp1xlo
+	
+	SEC
+	LDA rayoriginx   ;check if x value is negative
+	SBC #30;move pill in x axis y 30 units
+	AND #%10000000 
+	BEQ step3b
+	SEC
+	LDA #$00
+	SBC temp1xlo
+    STA temp1xlo
+	LDA #$00
+	SBC temp1xhi
+	STA temp1xhi
+	
+step3b:
+	LDA tempy
+	LDY #3
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
+	
+	;LDA rayoriginy   ;check if y value is negative
+	LDA rayyflip
+	AND #%10000000 
+	BEQ step4jplusb
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+	
+step4jplusb:
+	clc				; clear carry
+	lda temp1xlo
+	adc temp1ylo
+	sta temp2ylo			; store sum of LSBs
+	lda temp1xhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2yhi			; the previous calculation
+	
+	;----------------------------------------------------------------------
+	LDA #0
+	STA isxneg
+	
+	LDA temp2xhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivxb
+	SEC
+	LDA #$00
+	SBC temp2xlo
+    STA temp2xlo
+	LDA #$00
+	SBC temp2xhi
+	STA temp2xhi
+	
+	LDA #1
+	STA isxneg
+continuedivxb:
+	lda temp2xlo            ;divide by 5
+	sta dividend
+	lda temp2xhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
+	
+	lda dividend
+	sta temp2xlo
+	sta tempx
+	lda dividend + 1
+	sta temp2xhi
+	;------------------------------------------
+	LDA #0
+	STA isyneg
+	
+	LDA temp2yhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivyb
+	SEC
+	LDA #$00
+	SBC temp2ylo
+    STA temp2ylo
+	LDA #$00
+	SBC temp2yhi
+	STA temp2yhi
+	
+	LDA #1
+	STA isyneg
+	
+continuedivyb:
+	lda temp2ylo            ;divide by 5
+	sta dividend
+	lda temp2yhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
+	
+	lda dividend
+	sta temp2ylo
+	sta tempy
+	lda dividend + 1
+	sta temp2yhi
+	
+	;-----------------------------------------------------------------------------------------------------
+	;using phitagorean triplets to rotate
+	;this will rotate in the Y axis 
+	;iq example pos.zy = (mat2(3,4,-4,3)/5.0)*pos.zy;
+	;float tempz = 3.0*pos.z -4.0*pos.y;
+    ;float tempy = 4.0*pos.z + 3.0*pos.y;
+    ;pos.z = tempz / 5.0;
+    ;pos.y = tempy / 5.0;
+	
+	;calc tempz
+	LDA tempz
+	LDY #3
+	JSR mult16
+	STA temp1zhi
+	LDA num1
+	STA temp1zlo
+	
+	LDA rayoriginz   ;check if z value is negative
+	AND #%10000000 
+	BEQ step1zb
+	SEC
+	LDA #$00
+	SBC temp1zlo
+    STA temp1zlo
+	LDA #$00
+	SBC temp1zhi
+	STA temp1zhi
+step1zb:
+	LDA tempy
+	LDY #4
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
+	
+	;LDA yflip   ;check if y value is negative
+	;AND #%10000000
+	LDA isyneg
+	CMP #0
+	BEQ step1pluszb
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+
+step1pluszb:
+	SEC              ;complement to add
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+
+	clc				; clear carry
+	lda temp1zlo
+	adc temp1ylo
+	sta temp2zlo			; store sum of LSBs
+	lda temp1zhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2zhi			; the previous calculation
+	
+step2zb:
+	;calc tempz
+	LDA tempz
+	LDY #4
+	JSR mult16
+	STA temp1zhi;
+	LDA num1
+	STA temp1zlo
+	
+	LDA rayoriginz   ;check if z value is negative
+	AND #%10000000 
+	BEQ step3zb
+	SEC
+	LDA #$00
+	SBC temp1zlo
+    STA temp1zlo
+	LDA #$00
+	SBC temp1zhi
+	STA temp1zhi
+	
+step3zb:
+	LDA tempy
+	LDY #3
+	JSR mult16
+	STA temp1yhi
+	LDA num1
+	STA temp1ylo
+	
+	;LDA yflip   ;check if y value is negative
+	;AND #%10000000 
+	LDA isyneg
+	CMP #0
+	BEQ step4jpluzb
+	SEC
+	LDA #$00
+	SBC temp1ylo
+    STA temp1ylo
+	LDA #$00
+	SBC temp1yhi
+	STA temp1yhi
+	
+step4jpluzb:
+	clc				; clear carry
+	lda temp1zlo
+	adc temp1ylo
+	sta temp2ylo			; store sum of LSBs
+	lda temp1zhi
+	adc temp1yhi			; add the MSBs using carry from
+	sta temp2yhi			; the previous calculation
+	
+	;----------------------------------------------------------------------
+	
+	LDA temp2zhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivzb
+	SEC
+	LDA #$00
+	SBC temp2zlo
+    STA temp2zlo
+	LDA #$00
+	SBC temp2zhi
+	STA temp2zhi
+continuedivzb:
+	lda temp2zlo            ;divide by 5
+	sta dividend
+	lda temp2zhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
+	
+	lda dividend
+	sta temp2zlo
+	sta tempz
+	lda dividend + 1
+	sta temp2zhi
+
+	;------------------------------------------
+	LDA #0
+	STA isyneg
+	
+	LDA temp2yhi
+	AND #%10000000     ;check if value is negative, if it is, then make it positive
+	BEQ continuedivyzb
+	SEC
+	LDA #$00
+	SBC temp2ylo
+    STA temp2ylo
+	LDA #$00
+	SBC temp2yhi
+	STA temp2yhi
+	
+	LDA #1
+	STA isyneg
+	
+continuedivyzb:
+	lda temp2ylo            ;divide by 5
+	sta dividend
+	lda temp2yhi
+	sta dividend + 1
+	lda #5
+	sta divisor
+	jsr divide
+	
+	lda dividend
+	sta temp2ylo
+	sta tempy
+	lda dividend + 1
+	sta temp2yhi
+	
+
+clamp0:
 	LDA rayyflip
     CMP #$80
     BCC clamp1 ;lower means rayyflip positive
@@ -1500,7 +1899,7 @@ WaitForHit:
 	
 	LDA render
 	CMP #0
-	BEQ checktimers
+	;BEQ checktimers ; dont check timers
 	RTI
 	
 checktimers:
