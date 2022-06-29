@@ -18,5 +18,11 @@ ToDos:
 
 ![image](https://user-images.githubusercontent.com/5841150/176202903-83dee980-5954-48ca-89ee-5a8921b7d429.png)
 
+Update at 06-29-2022:
+- [X] moving the bombilla (straw?) down a little bit
+
+![image](https://user-images.githubusercontent.com/5841150/176508205-824b5292-18e1-4c6c-b0aa-73bb47780fe9.png)
+
+
 
 
