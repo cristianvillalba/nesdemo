@@ -83,8 +83,6 @@ finalclampy .rs 1;
 map1val    .rs 1;
 map2val    .rs 1;
 
-
-
 ; for ca65
 PPUMASK = $2001
 PPUADDR = $2006
@@ -95,6 +93,10 @@ chrdata = 210; Adddress D2 in RAM
 
   .bank 0		; load bank 0 or PRG code - in nesASM code is divided in banks of 8k
   .org $8000	; starting at memory address $8000 - full 32k NESROM-256
+  
+  .include "famitone2.asm"
+  .include "desprolijo.asm"
+  
   
 RESET:
 	SEI			; disable IRQs
@@ -130,7 +132,7 @@ clrmem:
 vblankwait2:			;Second wait for vblank, PPU is ready after this
 	BIT $2002
 	BPL vblankwait2
-	
+		
 copy_custom_chr:
 	lda #$00  ; load the source address into a pointer in zero page
 	sta src
@@ -225,7 +227,7 @@ LoadPalettesLoop:
 	BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
 						  ; if compare was equal to 32, keep going down
 
-;;;Set some initial ball stats
+;;;Set some initial ball stats		
 	LDA #126
 	STA bally
   
@@ -307,6 +309,8 @@ pixelcol:
 	LDX spritecolumn ; take back previous values
 	LDY spriterow ;take back previous values
 	inx
+	jsr checksignature
+continuenormalprocess:
 	cpx #16; break if we reach 16
 	bne calcsprite
 	iny
@@ -316,12 +320,20 @@ pixelcol:
 	LDA pattern
 	CMP #0
 	BEQ otherpattern
-	
+breakprocessloop:
 	LDA #0 ;break the pixel processing
 	STA render ; break the pixel processing
 	STA timers;
 	STA timerm
 	STA timerm2
+	
+	ldx #LOW(desprolijo_music_data)
+	ldy #HIGH(desprolijo_music_data)
+	lda #$80;This sets Famitone to use NTSC mode.
+	jsr FamiToneInit
+
+	lda #0;Play first subsong
+	jsr FamiToneMusicPlay
 	
 	;finally start looping the NMI
 	LDA #%10000000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 0
@@ -330,6 +342,8 @@ pixelcol:
 	LDA #%00011110   ; enable sprites, enable background, no clipping on left side
 	STA $2001
 	
+
+		
 	JMP Foreverloop		;jump back to Forever, infinite loop
 
 initpixel:
@@ -343,6 +357,38 @@ initpixel:
 	STA rayoriginz;
 	
 	RTS
+	
+checksignature:
+	LDA pattern
+	CMP #1
+	BEQ checksignature1
+	JMP continuenormalprocess
+
+checksignature1:
+	cpx #13
+	BEQ checksignature2
+	JMP continuenormalprocess
+
+checksignature2:
+	cpy #15
+	BEQ putsignature
+	JMP continuenormalprocess
+
+putsignature:
+	lda #$00  ; load the source address into a pointer in zero page
+	sta src
+	lda #$A0
+	sta src+1
+	
+	ldy #0
+	ldx #48      ; copy 3 patterns of 16 bytes each CEV signature
+loopsignature:
+	lda [src],y  ; copy one byte
+	sta PPUDATA
+	iny
+	dex
+	bne loopsignature  ; repeat until we've copied enough
+	JMP breakprocessloop
 	
 initvars:
 	;init some variables
@@ -1844,7 +1890,7 @@ sqnomore:
 	RTS
 
 	
-NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.
+NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.		
 	LDA #$00
 	STA $2003       ; set the low byte (00) of the RAM address
 	LDA #$02
@@ -1881,8 +1927,10 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
   
 	LDA ballx
 	STA $0203
-	;;update paddle sprites
-		
+	;;update paddle sprites	
+
+	;;update music
+	jsr FamiToneUpdate;Other lines here for context	
 	
 WaitForNoHit:
 	LDA $2002
@@ -1896,10 +1944,11 @@ WaitForHit:
 	;inmediately switch to a bank 1 of pattern table for background
 	LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
 	STA $2000
-	
-	LDA render
-	CMP #0
+		
+	;LDA render
+	;CMP #0
 	;BEQ checktimers ; dont check timers
+		
 	RTI
 	
 checktimers:
@@ -1946,14 +1995,16 @@ addminute:
 	STX render
 	RTI
 
+
 ;---------------other bank-----------------
   .bank 1
   .org $A000	;I will use this bank as an internal store of CHR pattern data, 16 bytes for each tile, two 256 tiles tables
-  .db $FF,$00,$00,$00,  $00,$00,$00,$FF,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 1
-  .db $00,$FF,$FF,$00,  $00,$FF,$FF,$00,  $00,$FF,$FF,$00,  $00,$FF,$FF,$00   ;;sprite pattern 2
+  .db $00,$7E,$40,$40,  $40,$40,$7E,$00,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 1 <----Letter C
+  .db $00,$7E,$40,$78,  $40,$40,$7E,$00,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 2 <----Letter E
+  .db $00,$42,$42,$44,  $28,$28,$10,$00,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 3 <----Letter V
 
   .org $B000    ;start of the second 256 tile table
-  .db $AA,$0C,$0C,$00,  $00,$0C,$0C,$AA,  $AA,$0C,$0C,$00,  $00,$0C,$0C,$AA   ;;sprite pattern 1
+  .db $00,$00,$00,$00,  $00,$00,$00,$00,  $00,$00,$00,$00,  $00,$00,$00,$00   ;;sprite pattern 1
 
 ;----------------bank-----------------
   .bank 2		
@@ -2044,7 +2095,7 @@ nametable:;background rows are split into two 16 byte sections to keep lines sho
   .db $98,$99,$9A,$9B,$9C,$9D,$9E,$9F,$00,$00,$00,$00,$00,$00,$00,$00  ;;
   
   .db $00,$00,$00,$00,$00,$00,$00,$00,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7  ;;row 27
-  .db $A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
+  .db $A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$00,$00,$00,$FD,$FE,$FF,$00,$00  ;;adding cev signature
   
   .db $00,$00,$00,$00,$00,$00,$00,$00,$B0,$B1,$B2,$B3,$B4,$B5,$B6,$B7  ;;row 28
   .db $B8,$B9,$BA,$BB,$BC,$BD,$BE,$BF,$00,$00,$00,$00,$00,$00,$00,$00  ;;
@@ -2083,6 +2134,8 @@ sprites:
   .dw NMI		;when an NMI happens (once per frame if enabled) the processor will jump to the label NMI:
   .dw RESET		;when the processor first turns on or is reset, it will jump to the label RESET:
   .dw 0			;external interrupt IRQ is not used in this tutorial
+  
+
 
 ;------remove this if we want to use CHR RAM-----------
 ;----------------bank of sprites-------------------
