@@ -228,7 +228,7 @@ LoadPalettesLoop:
 						  ; if compare was equal to 32, keep going down
 
 ;;;Set some initial ball stats		
-	LDA #126
+	LDA #60
 	STA bally
   
 	LDA #$80
@@ -330,6 +330,7 @@ breakprocessloop:
 	ldx #LOW(desprolijo_music_data)
 	ldy #HIGH(desprolijo_music_data)
 	lda #$80;This sets Famitone to use NTSC mode.
+	;lda #$0;This sets Famitone to use PAL mode.
 	jsr FamiToneInit
 
 	lda #0;Play first subsong
@@ -1890,7 +1891,7 @@ sqnomore:
 	RTS
 
 	
-NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.		
+NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is for updating paint, the other resets.	
 	LDA #$00
 	STA $2003       ; set the low byte (00) of the RAM address
 	LDA #$02
@@ -1912,8 +1913,11 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
 ;	LDA ballx
 ;	CLC
 ;	ADC #$01        ;;ballx position = ballx + ballspeedx
-	LDA #93
+	LDA #75
 	STA ballx
+	
+	LDA #125
+	STA bally
 	
 	;this will update all ball sprite info in the RAM memory space $0200
 	LDA bally
@@ -1929,8 +1933,6 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
 	STA $0203
 	;;update paddle sprites	
 
-	;;update music
-	jsr FamiToneUpdate;Other lines here for context	
 	
 WaitForNoHit:
 	LDA $2002
@@ -1948,6 +1950,10 @@ WaitForHit:
 	;LDA render
 	;CMP #0
 	;BEQ checktimers ; dont check timers
+	
+	;;update music
+	jsr FamiToneUpdate;Other lines here for context	
+
 		
 	RTI
 	
