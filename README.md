@@ -13,7 +13,7 @@ It is really slow, so you better use the turbo option in your emulator to get de
 
 ToDos:
 - [X] making a Mate with DFs.
-- [ ] putting some sound on it.
+- [X] putting some sound on it.
 - [ ] stop wasting time here.
 
 ![image](https://user-images.githubusercontent.com/5841150/176202903-83dee980-5954-48ca-89ee-5a8921b7d429.png)
