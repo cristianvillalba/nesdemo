@@ -1119,10 +1119,10 @@ minusthick:
 ;pill map
 ; p.y -= clamp( p.y, 0.0, h );
 pillmap:
-	LDA #3
+	LDA #2
 	STA pillr
 	
-	LDA #30
+	LDA #20
 	STA pillh
 	
 	SEC
@@ -1913,7 +1913,7 @@ NMI:					;non maskable interrupt, this is one of 2 main interrupts, the nmi is f
 ;	LDA ballx
 ;	CLC
 ;	ADC #$01        ;;ballx position = ballx + ballspeedx
-	LDA #75
+	LDA #74
 	STA ballx
 	
 	LDA #125

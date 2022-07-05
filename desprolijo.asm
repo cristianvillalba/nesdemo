@@ -16,7 +16,7 @@ desprolijo_music_data:
 	.db $30 ;instrument $02
 	.dw .env3,.env0,.env0
 	.db $00
-	.db $30 ;instrument $03
+	.db $b0 ;instrument $03
 	.dw .env2,.env0,.env0
 	.db $00
 
@@ -61,116 +61,201 @@ desprolijo_music_data:
 	.db $53,$52,$a3
 .ref9:
 	.db $4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e
-	.db $4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$44,$ad
+	.db $4a,$4e,$44,$ad,$44,$83,$44,$83
+.ref10:
+	.db $4a,$83,$4e,$83,$52,$83,$4e,$83,$4a,$83,$4e,$83,$4e,$83,$4a,$a7
+	.db $44,$83,$44,$83
+	.db $ff,$14
+	.dw .ref10
+	.db $ff,$14
+	.dw .ref10
+.ref13:
+	.db $4a,$83,$4e,$83,$52,$83,$4e,$83,$4a,$83,$4e,$83,$4e,$83,$4a,$b3
+.ref14:
+	.db $83,$44,$4a,$44,$4a,$83,$44,$4f,$4e,$83,$4a,$4e,$4a,$4e,$83,$4a
+	.db $53,$52,$a3,$4a,$4e,$4a,$4e,$4a,$4e
+.ref15:
+	.db $4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$44,$b1,$44,$4a
+	.db $44,$4a,$83,$44,$4f,$4e
+.ref16:
+	.db $83,$4a,$4e,$4a,$4e,$83,$4a,$53,$4c,$a3,$4a,$4e,$4a,$4e,$4a,$4e
+	.db $4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e,$4a,$4e
+.ref17:
+	.db $44,$dd
 	.db $fd
 	.dw .song0ch0loop
 
 .song0ch1:
 .song0ch1loop:
-.ref10:
+.ref18:
 	.db $df
-.ref11:
+.ref19:
 	.db $df
-.ref12:
+.ref20:
 	.db $86,$44,$44,$44,$4a,$4e,$4a,$44,$44,$44,$4a,$44,$4a,$44,$44,$44
 	.db $4a,$4e,$4a,$44,$44,$44,$4a,$44,$4a,$44,$44,$44,$4a,$4e,$4a,$44
 	.db $44,$44,$4a,$44,$4a,$44,$44,$44,$4a,$4e,$4a,$44,$44,$44,$4a,$44
 	.db $4a
-.ref13:
+.ref21:
 	.db $44,$44,$44,$4a,$4e,$4a,$44,$44,$44,$4a,$44,$4a,$44,$44,$44,$4a
 	.db $4e,$4a,$44,$44,$44,$4a,$44,$4a,$44,$44,$44,$4a,$4e,$4a,$44,$44
 	.db $44,$4a,$44,$4a,$44,$44,$44,$4a,$4e,$4a,$44,$44,$44,$4a,$44,$4a
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
 	.db $ff,$30
-	.dw .ref13
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
+	.db $ff,$30
+	.dw .ref21
 	.db $fd
 	.dw .song0ch1loop
 
 .song0ch2:
 .song0ch2loop:
-.ref20:
+.ref36:
 	.db $df
-.ref21:
+.ref37:
 	.db $df
-.ref22:
+.ref38:
 	.db $df
-.ref23:
+.ref39:
 	.db $82,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85
 	.db $33,$32,$85,$33,$32,$85,$33,$32,$85
-.ref24:
+.ref40:
 	.db $33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33
 	.db $32,$85,$33,$32,$85,$33,$32,$85
 	.db $ff,$18
-	.dw .ref24
+	.dw .ref40
 	.db $ff,$18
-	.dw .ref24
+	.dw .ref40
 	.db $ff,$18
-	.dw .ref24
-.ref28:
+	.dw .ref40
+.ref44:
 	.db $33,$33,$33,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33
 	.db $32,$85,$33,$32,$85,$33,$32,$85
 	.db $ff,$18
-	.dw .ref24
+	.dw .ref40
+	.db $ff,$18
+	.dw .ref40
+	.db $ff,$18
+	.dw .ref40
+	.db $ff,$18
+	.dw .ref40
+.ref49:
+	.db $33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$85,$33
+	.db $32,$85,$33,$32,$85,$33,$33,$32,$81
+	.db $ff,$18
+	.dw .ref40
+	.db $ff,$18
+	.dw .ref40
+	.db $ff,$18
+	.dw .ref40
+.ref53:
+	.db $33,$32,$85,$33,$32,$85,$33,$32,$85,$33,$32,$b5
 	.db $fd
 	.dw .song0ch2loop
 
 .song0ch3:
 .song0ch3loop:
-.ref30:
+.ref54:
 	.db $df
-.ref31:
+.ref55:
 	.db $df
-.ref32:
+.ref56:
 	.db $df
-.ref33:
+.ref57:
 	.db $85,$84,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89
 	.db $08,$83
-.ref34:
+.ref58:
 	.db $85,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08
 	.db $83
 	.db $ff,$11
-	.dw .ref34
+	.dw .ref58
 	.db $ff,$11
-	.dw .ref34
+	.dw .ref58
 	.db $ff,$11
-	.dw .ref34
-.ref38:
+	.dw .ref58
+.ref62:
 	.db $91,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$83
 	.db $ff,$11
-	.dw .ref34
+	.dw .ref58
+	.db $ff,$11
+	.dw .ref58
+	.db $ff,$11
+	.dw .ref58
+	.db $ff,$11
+	.dw .ref58
+.ref67:
+	.db $85,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$89,$08,$8f
+	.db $ff,$11
+	.dw .ref58
+	.db $ff,$11
+	.dw .ref58
+	.db $ff,$11
+	.dw .ref58
+.ref71:
+	.db $85,$08,$89,$08,$89,$08,$89,$08,$b3
 	.db $fd
 	.dw .song0ch3loop
 
 .song0ch4:
 .song0ch4loop:
-.ref40:
+.ref72:
 	.db $df
-.ref41:
+.ref73:
 	.db $df
-.ref42:
+.ref74:
 	.db $df
-.ref43:
+.ref75:
 	.db $df
-.ref44:
+.ref76:
 	.db $df
-.ref45:
+.ref77:
 	.db $df
-.ref46:
+.ref78:
 	.db $df
-.ref47:
+.ref79:
 	.db $df
-.ref48:
+.ref80:
 	.db $df
-.ref49:
+.ref81:
+	.db $df
+.ref82:
+	.db $df
+.ref83:
+	.db $df
+.ref84:
+	.db $df
+.ref85:
+	.db $df
+.ref86:
+	.db $df
+.ref87:
+	.db $df
+.ref88:
+	.db $df
+.ref89:
 	.db $df
 	.db $fd
 	.dw .song0ch4loop
