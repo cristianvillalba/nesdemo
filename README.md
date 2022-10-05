@@ -11,6 +11,8 @@ Also it is using the sprite 0 hit for switching the table and paint almost 500 s
 
 It is really slow, so you better use the turbo option in your emulator to get decent speed.
 
+
+
 ToDos:
 - [X] making a Mate with DFs.
 - [X] putting some sound on it.
@@ -23,6 +25,11 @@ Update at 06-29-2022:
 
 ![image](https://user-images.githubusercontent.com/5841150/176508205-824b5292-18e1-4c6c-b0aa-73bb47780fe9.png)
 
+Update:
+#6 in FashParty 2022 - my first demoparty!
+https://flashparty.rebelion.digital
+
+![image](https://user-images.githubusercontent.com/5841150/194147828-2fce57af-92a8-498b-a9da-a2261cf67d10.png)
 
 
 
